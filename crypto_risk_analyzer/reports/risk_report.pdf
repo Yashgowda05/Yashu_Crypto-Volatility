@@ -1,0 +1,99 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import yfinance as yf
+import matplotlib.pyplot as plt
+from fpdf import FPDF
+
+st.set_page_config(page_title="Crypto Risk Analyzer", layout="wide")
+
+st.title("📊 Crypto Volatility & Risk Analyzer")
+
+# ----------------------------
+# Select Crypto Assets
+# ----------------------------
+assets = {
+    "Bitcoin": "BTC-USD",
+    "Ethereum": "ETH-USD",
+    "Solana": "SOL-USD",
+    "Cardano": "ADA-USD",
+    "Dogecoin": "DOGE-USD"
+}
+
+selected_assets = st.multiselect(
+    "Select Cryptocurrencies",
+    list(assets.keys()),
+    default=list(assets.keys())
+)
+
+# ----------------------------
+# Fetch Data
+# ----------------------------
+@st.cache_data
+def load_data(tickers):
+    data = yf.download(tickers, period="1y")["Adj Close"]
+    return data
+
+data = load_data([assets[a] for a in selected_assets])
+
+# ----------------------------
+# Volatility Calculation
+# ----------------------------
+returns = data.pct_change().dropna()
+volatility = returns.std() * np.sqrt(252) * 100
+
+# ----------------------------
+# Risk Classification
+# ----------------------------
+def classify_risk(v):
+    if v < 20:
+        return "Low Risk"
+    elif v < 40:
+        return "Medium Risk"
+    else:
+        return "High Risk"
+
+risk_df = pd.DataFrame({
+    "Asset": volatility.index,
+    "Volatility (%)": volatility.values,
+})
+risk_df["Risk Level"] = risk_df["Volatility (%)"].apply(classify_risk)
+
+# ----------------------------
+# Display Results
+# ----------------------------
+st.subheader("📈 Volatility Analysis")
+st.dataframe(risk_df)
+
+st.subheader("📊 Risk Distribution")
+fig, ax = plt.subplots()
+risk_df["Risk Level"].value_counts().plot(kind="pie", autopct="%1.1f%%", ax=ax)
+st.pyplot(fig)
+
+# ----------------------------
+# Download CSV
+# ----------------------------
+csv = risk_df.to_csv(index=False)
+st.download_button(
+    "Download CSV Report",
+    csv,
+    file_name="risk_report.csv",
+    mime="text/csv"
+)
+
+# ----------------------------
+# Generate PDF Report
+# ----------------------------
+if st.button("Generate PDF Report"):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+
+    pdf.cell(0, 10, "Crypto Volatility & Risk Report", ln=True, align="C")
+    pdf.ln(10)
+
+    for i, row in risk_df.iterrows():
+        pdf.cell(0, 8, f"{row['Asset']} - {row['Volatility (%)']:.2f}% - {row['Risk Level']}", ln=True)
+
+    pdf.output("risk_report.pdf")
+    st.success("PDF Report Generated Successfully!")
