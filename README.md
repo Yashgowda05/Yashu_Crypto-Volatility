@@ -86,8 +86,6 @@ Copy code
 streamlit run milestone_2_dashboard.py
 streamlit run milestone_3_dashboard.py
 streamlit run milestone_4_dashboard.py
-👩‍💻 Author
-Hemalatha
 
 📌 Notes
 
